@@ -14,4 +14,4 @@ rebar:
 	chmod u+x rebar
 
 test:
-	./rebar eunit
+	./rebar eunit skip_deps=true

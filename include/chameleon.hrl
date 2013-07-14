@@ -1,0 +1,2 @@
+-define(TABLE_NAME, chameleon_records).
+-define(RECORD_FUNCTION, chameleon_record).

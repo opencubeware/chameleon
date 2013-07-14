@@ -3,5 +3,10 @@
   {description, "A tiny Erlang term <-> JSON library"},
   {vsn, "1"},
   {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { chameleon_app, []}},
   {env, []}
  ]}.

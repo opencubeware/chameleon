@@ -1,0 +1,7 @@
+{application, chameleon,
+ [
+  {description, "A tiny Erlang term <-> JSON library"},
+  {vsn, "1"},
+  {registered, []},
+  {env, []}
+ ]}.

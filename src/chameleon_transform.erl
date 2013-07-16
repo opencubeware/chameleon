@@ -15,22 +15,28 @@
 parse_transform(Input, _) ->
     State1 = extract_records(Input, #state{}),
     State2 = extract_types(Input, State1),
-    State3 = nested_records(State2),
-    modify_tree(Input, [], State3).
+    modify_tree(Input, [], State2).
 
 modify_tree([{eof,_}=Eof], Acc, #state{records=Records}) ->
     RecordsCons = lists:foldl(fun(Record, Acc1) ->
                     {cons, 0, generate_record(Record), Acc1}
             end, {nil, 0}, Records),
-    Function = {function, 0, ?RECORD_FUNCTION, 0,
-                [{clause, 0, [], [], [RecordsCons]}]},
-    lists:reverse([Eof, Function | Acc]);
+    RecordsClauses = [generate_clause(Record) || Record <- Records],
+    OtherClause = [{clause, 0, [{var, 0, '_Other'}], [], [{nil, 0}]}],
+    Function0 = {function, 0, ?RECORD_FUNCTION, 0,
+                 [{clause, 0, [], [], [RecordsCons]}]},
+    Function1 = {function, 0, ?RECORD_FUNCTION, 1, RecordsClauses++OtherClause},
+    lists:reverse([Eof, Function1, Function0 | Acc]);
 modify_tree([{attribute, _, record, _}|_]=Tree, Acc,
             #state{exported=false}=State) ->
-    Acc1 = [{attribute, 0, export, [{?RECORD_FUNCTION,0}]}|Acc],
+    Acc1 = [{attribute, 0, export, [{?RECORD_FUNCTION,0}]},
+            {attribute, 0, export, [{?RECORD_FUNCTION,1}]}|Acc],
     modify_tree(Tree, Acc1, State#state{exported=true});
 modify_tree([Element|Rest], Acc, State) ->
     modify_tree(Rest, [Element|Acc], State).
+
+generate_clause({Name, Fields}) ->
+    {clause, 0, [{atom, 0, Name}], [], [abstract_fields(Fields)]}.
 
 generate_record({Name, Fields}) ->
     {tuple, 0, [{atom, 0, Name}, abstract_fields(Fields)]}.
@@ -40,25 +46,11 @@ abstract_fields(Fields) ->
                 {cons, 0, abstract_field(Field), Acc}
         end, {nil, 0}, Fields).
 
-abstract_field({Field, {Record, Fields}}) ->
+abstract_field({Field, Record}) ->
     {tuple, 0, [{atom, 0, Field},
-                {tuple, 0, [{atom, 0, Record},
-                            abstract_fields(Fields)]}]};
+                {atom, 0, Record}]};
 abstract_field(Field) ->
     {atom, 0, Field}.
-
-nested_records(#state{records=Records}) ->
-    #state{records=lists:map(fun(Record) ->
-                    nested_record(Record, Records)
-            end, Records)}.
-
-nested_record({Name, Fields}, Records) ->
-    Fields1 = lists:map(fun({Field, Relation}) ->
-                    RelationRecord = lists:keyfind(Relation,1,Records),
-                    {Field, nested_record(RelationRecord, Records)};
-                (Field) -> Field
-            end, Fields),
-    {Name, Fields1}.
 
 extract_types([{attribute, _, type, {{record, Record}, AbsFields, _}}|Rest],
               #state{records=Records}) ->

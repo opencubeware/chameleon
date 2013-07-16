@@ -13,5 +13,5 @@ rebar:
 	wget -q http://cloud.github.com/downloads/basho/rebar/rebar
 	chmod u+x rebar
 
-test:
-	./rebar eunit skip_deps=true
+test: compile
+	./rebar ct skip_deps=true

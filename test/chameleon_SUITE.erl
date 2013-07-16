@@ -88,5 +88,5 @@ record_from_multiple(Record) ->
     Fields.
 
 record_from_ets(Record) ->
-    [{Record, Fields}] = ets:lookup(?TABLE_NAME, Record),
+    [{Record, Fields}] = ets:lookup(?RECORDS_TABLE, Record),
     Fields.

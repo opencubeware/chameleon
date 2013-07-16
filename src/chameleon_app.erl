@@ -19,11 +19,11 @@
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
-    ?TABLE_NAME = ets:new(?TABLE_NAME, [{read_concurrency, true},
-                                        public,
-                                        named_table]),
+    [Table = ets:new(Table, [{read_concurrency, true},
+                             public,
+                             named_table]) || Table <- ?TABLES],
     chameleon_sup:start_link().
 
 stop(_State) ->
-    true = ets:delete(?TABLE_NAME),
+    [true = ets:delete(Table) || Table <- ?TABLES],
     ok.

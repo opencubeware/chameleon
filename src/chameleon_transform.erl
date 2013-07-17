@@ -21,28 +21,21 @@ modify_tree([{eof,_}=Eof], Acc, #state{records=Records}) ->
     RecordsCons = lists:foldl(fun(Record, Acc1) ->
                     {cons, 0, generate_record(Record), Acc1}
             end, {nil, 0}, Records),
-    RecordsClauses = [generate_clause(Record) || Record <- Records],
-    OtherClause = [{clause, 0, [{var, 0, '_Other'}], [], [{nil, 0}]}],
     Function0 = {function, 0, ?RECORD_FUNCTION, 0,
                  [{clause, 0, [], [], [RecordsCons]}]},
-    Function1 = {function, 0, ?RECORD_FUNCTION, 1, RecordsClauses++OtherClause},
-    lists:reverse([Eof, Function1, Function0 | Acc]);
+    lists:reverse([Eof, Function0 | Acc]);
 modify_tree([{attribute, _, record, _}|_]=Tree, Acc,
             #state{exported=false}=State) ->
-    Acc1 = [{attribute, 0, export, [{?RECORD_FUNCTION,0}]},
-            {attribute, 0, export, [{?RECORD_FUNCTION,1}]}|Acc],
+    Acc1 = [{attribute, 0, export, [{?RECORD_FUNCTION,0}]}|Acc],
     modify_tree(Tree, Acc1, State#state{exported=true});
 modify_tree([Element|Rest], Acc, State) ->
     modify_tree(Rest, [Element|Acc], State).
-
-generate_clause({Name, Fields}) ->
-    {clause, 0, [{atom, 0, Name}], [], [abstract_fields(Fields)]}.
 
 generate_record({Name, Fields}) ->
     {tuple, 0, [{atom, 0, Name}, abstract_fields(Fields)]}.
 
 abstract_fields(Fields) ->
-    lists:foldl(fun(Field, Acc) ->
+    lists:foldr(fun(Field, Acc) ->
                 {cons, 0, abstract_field(Field), Acc}
         end, {nil, 0}, Fields).
 
@@ -63,9 +56,13 @@ extract_types([{attribute, _, type, {{record, Record}, AbsFields, _}}|Rest],
                     case lists:keyfind(Relation, 1, Acc) of
                         {Relation, _} ->
                             {Record, Fields} = lists:keyfind(Record, 1, Acc),
-                            Fields1 = lists:delete(Field, Fields),
-                            Fields2 = [{Field, Relation}|Fields1],
-                            lists:keystore(Record, 1, Acc, {Record, Fields2});
+                            Fields1 = lists:map(fun(FieldMaybe) ->
+                                            case FieldMaybe of
+                                                    Field -> {Field, Relation};
+                                                    Other -> Other
+                                            end
+                                    end, Fields),
+                            lists:keystore(Record, 1, Acc, {Record, Fields1});
                         _ ->
                             Acc
                     end;

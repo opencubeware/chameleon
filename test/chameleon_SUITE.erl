@@ -31,7 +31,7 @@ all() ->
     [{group, record_extraction}].
 
 groups() ->
-    [{record_extraction, [sequence], [single, multiple, ets]}].
+    [{record_extraction, [sequence], [multiple, ets]}].
 
 %%%===================================================================
 %%% Init and teardown
@@ -59,30 +59,19 @@ end_per_testcase(_TestcaseName, _Config) ->
 %%%===================================================================
 %%% Tests
 %%%===================================================================
-single(_Config) ->
-    assert_unordered([name, city, country], ?RECORD_FUNCTION(company)),
-    assert_unordered([name, {company, company}], ?RECORD_FUNCTION(site)),
-    assert_unordered([name, surname, {site_one, site}, {site_two, site}],
-                     ?RECORD_FUNCTION(person)).
-
 multiple(_Config) ->
-    assert_unordered([name, city, country], record_from_multiple(company)),
-    assert_unordered([name, {company, company}], record_from_multiple(site)),
-    assert_unordered([name, surname, {site_one, site}, {site_two, site}],
-                     record_from_multiple(person)).
+    [name, city, country] = record_from_multiple(company),
+    [name, {company, company}] = record_from_multiple(site),
+    [name, surname, {site_one, site}, {site_two, site}] = record_from_multiple(person).
 
 ets(_Config) ->
-    assert_unordered([name, city, country], record_from_ets(company)),
-    assert_unordered([name, {company, company}], record_from_ets(site)),
-    assert_unordered([name, surname, {site_one, site}, {site_two, site}],
-                     record_from_ets(person)).
+    [name, city, country] = record_from_ets(company),
+    [name, {company, company}] = record_from_ets(site),
+    [name, surname, {site_one, site}, {site_two, site}] = record_from_ets(person).
 
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
-assert_unordered(First, Second) ->
-    [] = First--Second.
-
 record_from_multiple(Record) ->
     {Record, Fields} = lists:keyfind(Record, 1, ?RECORD_FUNCTION()),
     Fields.

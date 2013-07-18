@@ -32,8 +32,13 @@ all() ->
      {group, json}].
 
 groups() ->
-    [{record_extraction, [sequence], [multiple, ets]},
-     {json, [sequence], [simple_terms, proplist, nested_proplist]}].
+    [{record_extraction, [sequence], [multiple,
+                                      ets]},
+     {json, [sequence], [simple_terms,
+                         proplist,
+                         nested_proplist,
+                         record,
+                         record_nested]}].
 
 %%%===================================================================
 %%% Init and teardown
@@ -93,6 +98,38 @@ nested_proplist(_Config) ->
                            {street, [{name, <<"Oxford St">>},
                                      {number, 12}]}]}],
     assert_json(Json, Proplist).
+
+record(_Config) ->
+    Json = <<"{\"company\":"
+             "{\"name\":\"ACME\","
+             "\"city\":\"London\","
+             "\"country\":\"England\"}}">>,
+    Record = #company{name = <<"ACME">>,
+                      city = <<"London">>,
+                      country = <<"England">>},
+    assert_json(Json, Record).
+
+record_nested(_Config) ->
+    Json1 = <<"{\"site\":"
+              "{\"name\":\"Secret Department\","
+              "\"company\":null}}">>,
+    Record1 = #site{name = <<"Secret Department">>},
+    assert_json(Json1, Record1),
+
+    JsonCompany = <<"{\"company\":"
+                    "{\"name\":\"ACME\","
+                    "\"city\":\"London\","
+                    "\"country\":\"England\"}}">>,
+    Json2 = <<"{\"site\":"
+              "{\"name\":\"Secret Department\","
+              "\"company\":",JsonCompany/binary,"}}">>,
+    Record2 = #site{name = <<"Secret Department">>,
+                    company = #company{name = <<"ACME">>,
+                                       city = <<"London">>,
+                                       country = <<"England">>}},
+    assert_json(Json2, Record2).
+
+
 
 %%%===================================================================
 %%% Helpers

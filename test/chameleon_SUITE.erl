@@ -28,10 +28,12 @@ suite() ->
     [].
 
 all() ->
-    [{group, record_extraction}].
+    [{group, record_extraction},
+     {group, json}].
 
 groups() ->
-    [{record_extraction, [sequence], [multiple, ets]}].
+    [{record_extraction, [sequence], [multiple, ets]},
+     {json, [sequence], [simple_terms, proplist, nested_proplist]}].
 
 %%%===================================================================
 %%% Init and teardown
@@ -69,9 +71,36 @@ ets(_Config) ->
     [name, {company, company}] = record_from_ets(site),
     [name, surname, {site_one, site}, {site_two, site}] = record_from_ets(person).
 
+simple_terms(_Config) ->
+    assert_json(<<"\"dummy\"">>, dummy),
+    assert_json(<<"[1,2,3]">>, [1,2,3]),
+    assert_json(<<"[\"one\",\"two\",3]">>, [one, <<"two">>, 3]). 
+
+proplist(_Config) ->
+    Json = <<"{\"name\":\"Alice\",\"surname\":\"Doe\",\"city\":\"London\","
+             "\"country\":\"England\",\"phone\":568111,\"pet\":null}">>,
+    Proplist = [{name, <<"Alice">>}, {surname, <<"Doe">>}, {city, <<"London">>},
+                {country, <<"England">>}, {phone, 568111}, {pet, undefined}],
+    assert_json(Json, Proplist).
+
+nested_proplist(_Config) ->
+    Json = <<"{\"name\":\"Alice\",\"surname\":\"Doe\",\"address\":{\"city\":\"London\","
+             "\"country\":\"England\",\"street\":"
+             "{\"name\":\"Oxford St\",\"number\":12}}}">>,
+    Proplist = [{name, <<"Alice">>}, {surname, <<"Doe">>},
+                {address, [{city, <<"London">>},
+                           {country, <<"England">>},
+                           {street, [{name, <<"Oxford St">>},
+                                     {number, 12}]}]}],
+    assert_json(Json, Proplist).
+
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
+assert_json(Json, Term) ->
+    JsonFromTerm = chameleon:json(Term),
+    Json = iolist_to_binary(JsonFromTerm).
+
 record_from_multiple(Record) ->
     {Record, Fields} = lists:keyfind(Record, 1, ?RECORD_FUNCTION()),
     Fields.

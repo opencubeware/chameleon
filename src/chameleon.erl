@@ -52,4 +52,4 @@ json(Subject, Filters) ->
 -spec json(record() | proplists:proplist(), proplists:proplist(),
       proplists:proplist()) -> {ok, binary()} | {error, atom()}.
 json(Subject, Filters, Validators) ->
-    throw(not_implemented).
+    chameleon_json:transform(Subject, Filters, Validators).

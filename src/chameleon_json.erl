@@ -19,26 +19,24 @@
 % @todo handle validation, as for now - filtering only
 %% from record
 transform(Subject, Filters, Validators) ->
-    Records = ets:tab2list(?RECORDS_TABLE),
+    Records = dict:from_list(ets:tab2list(?RECORDS_TABLE)),
     Prepared = prepare(Subject, Records),
     mochijson2:encode(Prepared).
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-prepare({struct, _}=Struct, _Records) ->
-    Struct;
 prepare({Key, [{_,_}|_]=Proplist}, Records) ->
     {Key, prepare(Proplist, Records)};
 prepare({Key, undefined}, _Records) ->
     {Key, null};
 prepare(Record, Records) when is_tuple(Record) ->
     RecordList = recursive_tuple_to_list(Record),
-    case lists:keyfind(hd(RecordList), 1, Records) of
-        {_, _} ->
+    case dict:is_key(hd(RecordList), Records) of
+        true ->
             RecordProplist = recursive_zipwith(RecordList, [], Records),
             prepare(RecordProplist, Records);
-        _ ->
+        false ->
             Record
     end;
 prepare([{_,_}|_]=Proplist, Records) ->
@@ -56,7 +54,7 @@ recursive_tuple_to_list(Tuple) ->
 recursive_zipwith([], Acc, _Records) ->
     lists:reverse(Acc);
 recursive_zipwith([Record | Values], Acc, Records) ->
-    {Record, Fields} = lists:keyfind(Record, 1, Records),
+    Fields = dict:fetch(Record, Records),
     [{Record, recursive_values(Fields, Values, [], Records)}|Acc].
 
 recursive_values([], [], Acc, _Records) ->

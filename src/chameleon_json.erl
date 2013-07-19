@@ -18,28 +18,34 @@
       proplists:proplist()) -> {ok, binary()} | {error, atom()}.
 % @todo handle validation, as for now - filtering only
 %% from record
-transform({struct, _}=Struct, _Filters, _Validators) ->
-    mochijson2:encode(Struct);
-transform(Record, Filters, Validators) when is_tuple(Record) ->
-    RecordList = recursive_tuple_to_list(Record),
-    RecordProplist = recursive_zipwith(RecordList, []),
-    transform(RecordProplist, Filters, Validators);
-transform([{_,_}|_]=Proplist, Filters, Validators) ->    
-    Prepared = prepare_proplist(Proplist),
-    transform(Prepared, Filters, Validators);
-transform(Subject, _Filters, _Validators) ->
-    mochijson2:encode(Subject).
+transform(Subject, Filters, Validators) ->
+    Records = ets:tab2list(?RECORDS_TABLE),
+    Prepared = prepare(Subject, Records),
+    mochijson2:encode(Prepared).
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-prepare_proplist([{_,_}|_]=Proplist) ->
-    {struct, [prepare_proplist(Element) || Element <- Proplist]};
-prepare_proplist({Key, [{_,_}|_]=Proplist}) ->
-    {Key, prepare_proplist(Proplist)};
-prepare_proplist({Key, undefined}) ->
+prepare({struct, _}=Struct, _Records) ->
+    Struct;
+prepare({Key, [{_,_}|_]=Proplist}, Records) ->
+    {Key, prepare(Proplist, Records)};
+prepare({Key, undefined}, _Records) ->
     {Key, null};
-prepare_proplist(Other) ->
+prepare(Record, Records) when is_tuple(Record) ->
+    RecordList = recursive_tuple_to_list(Record),
+    case lists:keyfind(hd(RecordList), 1, Records) of
+        {_, _} ->
+            RecordProplist = recursive_zipwith(RecordList, [], Records),
+            prepare(RecordProplist, Records);
+        _ ->
+            Record
+    end;
+prepare([{_,_}|_]=Proplist, Records) ->
+    {struct, [prepare(Element, Records) || Element <- Proplist]};
+prepare(List, Records) when is_list(List) ->
+    [prepare(Element, Records) || Element <- List];
+prepare(Other, _Records) ->
     Other.
 
 recursive_tuple_to_list(Tuple) ->
@@ -47,19 +53,20 @@ recursive_tuple_to_list(Tuple) ->
                  (Other) -> Other
         end, tuple_to_list(Tuple)).
 
-recursive_zipwith([], Acc) ->
+recursive_zipwith([], Acc, _Records) ->
     lists:reverse(Acc);
-recursive_zipwith([Record | Values], Acc) ->
-    [{Record, Fields}] = ets:lookup(?RECORDS_TABLE, Record),
-    [{Record, recursive_values(Fields, Values, [])}|Acc].
+recursive_zipwith([Record | Values], Acc, Records) ->
+    {Record, Fields} = lists:keyfind(Record, 1, Records),
+    [{Record, recursive_values(Fields, Values, [], Records)}|Acc].
 
-recursive_values([], [], Acc) ->
+recursive_values([], [], Acc, _Records) ->
     lists:reverse(Acc);
-recursive_values([{Field, _Record}|FieldsRest], [undefined|ValuesRest], Acc) ->
-    recursive_values(FieldsRest, ValuesRest, [{Field, undefined}|Acc]);
+recursive_values([{Field, _Record}|FieldsRest], [undefined|ValuesRest],
+                 Acc, Records) ->
+    recursive_values(FieldsRest, ValuesRest, [{Field, undefined}|Acc], Records);
 recursive_values([{Field, Record}|FieldsRest],
-                 [[Record|_]=Values|ValuesRest], Acc) ->
-    Acc1 = [{Field, recursive_zipwith(Values, [])}|Acc],
-    recursive_values(FieldsRest, ValuesRest, Acc1);
-recursive_values([Field|FieldsRest], [Value|ValuesRest], Acc) ->
-    recursive_values(FieldsRest, ValuesRest, [{Field, Value}|Acc]).
+                 [[Record|_]=Values|ValuesRest], Acc, Records) ->
+    Acc1 = [{Field, recursive_zipwith(Values, [], Records)}|Acc],
+    recursive_values(FieldsRest, ValuesRest, Acc1, Records);
+recursive_values([Field|FieldsRest], [Value|ValuesRest], Acc, Records) ->
+    recursive_values(FieldsRest, ValuesRest, [{Field, Value}|Acc], Records).

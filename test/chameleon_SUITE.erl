@@ -37,8 +37,10 @@ groups() ->
      {json, [sequence], [simple_terms,
                          proplist,
                          nested_proplist,
+                         proplist_list,
                          record,
-                         record_nested]}].
+                         record_nested,
+                         record_list]}].
 
 %%%===================================================================
 %%% Init and teardown
@@ -99,6 +101,13 @@ nested_proplist(_Config) ->
                                      {number, 12}]}]}],
     assert_json(Json, Proplist).
 
+proplist_list(_Config) ->
+    Json = <<"[{\"name\":\"Alice\",\"city\":\"London\"},"
+              "{\"name\":\"Bob\",\"city\":\"New York\"}]">>,
+    List = [[{name, <<"Alice">>}, {city, <<"London">>}],
+            [{name, <<"Bob">>}, {city, <<"New York">>}]],
+    assert_json(Json, List).
+
 record(_Config) ->
     Json = <<"{\"company\":"
              "{\"name\":\"ACME\","
@@ -128,6 +137,21 @@ record_nested(_Config) ->
                                        city = <<"London">>,
                                        country = <<"England">>}},
     assert_json(Json2, Record2).
+
+record_list(_Config) ->
+    Json1 = <<"{\"site\":"
+              "{\"name\":\"Secret Department\","
+              "\"company\":null}}">>,
+    Json2 = <<"{\"company\":"
+              "{\"name\":\"ACME\","
+              "\"city\":\"London\","
+              "\"country\":\"England\"}}">>,
+    Json = <<"[", Json1/binary, ",", Json2/binary, "]">>,
+    List = [#site{name = <<"Secret Department">>},
+            #company{name = <<"ACME">>,
+                     city = <<"London">>,
+                     country = <<"England">>}],
+    assert_json(Json, List).
 
 
 

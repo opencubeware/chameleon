@@ -14,14 +14,17 @@
 %%%===================================================================
 %%% Public API
 %%%===================================================================
--spec transform(record() | proplists:proplist(), proplists:proplist(),
-      proplists:proplist()) -> {ok, binary()} | {error, atom()}.
+-spec transform(record() | proplists:proplist(), [chameleon:filter()],
+      [chameleon:validator()]) -> {ok, binary()} | {error, atom()}.
 % @todo handle validation, as for now - filtering only
-%% from record
+transform({proplist, Binary}, Filters, Validators) ->
+    Struct = mochijson2:decode(Binary),
+    Proplist = struct_to_proplist(Struct),
+    {ok, Proplist};
 transform(Subject, Filters, Validators) ->
     Records = dict:from_list(ets:tab2list(?RECORDS_TABLE)),
     Prepared = prepare(Subject, Records),
-    mochijson2:encode(Prepared).
+    {ok, mochijson2:encode(Prepared)}.
 
 %%%===================================================================
 %%% Internal functions
@@ -68,3 +71,8 @@ recursive_values([{Field, Record}|FieldsRest],
     recursive_values(FieldsRest, ValuesRest, Acc1, Records);
 recursive_values([Field|FieldsRest], [Value|ValuesRest], Acc, Records) ->
     recursive_values(FieldsRest, ValuesRest, [{Field, Value}|Acc], Records).
+
+struct_to_proplist(List) when is_list(List) ->
+    [struct_to_proplist(Element) || Element <- List];
+struct_to_proplist({struct, Proplist}) ->
+    Proplist.

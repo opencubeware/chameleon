@@ -14,7 +14,16 @@
          pre_filters/2,
          json/1,
          json/2,
-         json/3]).
+         json/3,
+         proplist/1,
+         proplist/2,
+         proplist/3]).
+
+-type record_name() :: atom().
+-type field() :: atom().
+-type filter() :: {field(), fun()}.
+-type validator() :: {field(), fun()}.
+-export_type([record_name/0, field/0, filter/0, validator/0]).
 
 %%%===================================================================
 %%% Public API
@@ -31,11 +40,11 @@ records(Modules) when is_list(Modules) ->
 records(Module) ->
     records([Module]).
 
--spec post_filters(atom(), proplists:proplist()) -> true.
+-spec post_filters(record_name(), [filter()]) -> true.
 post_filters(Record, Filters) ->
     true = ets:insert(?POST_FILTERS_TABLE, {Record, Filters}).
 
--spec pre_filters(atom(), proplists:proplist()) -> true.
+-spec pre_filters(record_name(), [filter()]) -> true.
 pre_filters(Record, Filters) ->
     true = ets:insert(?PRE_FILTERS_TABLE, {Record, Filters}).
 
@@ -44,12 +53,27 @@ pre_filters(Record, Filters) ->
 json(Subject) ->
    json(Subject, [], []). 
 
--spec json(record() | proplists:proplist(), proplists:proplist()) ->
+-spec json(record() | proplists:proplist(), [filter()]) ->
       {ok, binary()} | {error, atom()}.
 json(Subject, Filters) ->
     json(Subject, Filters, []).
 
--spec json(record() | proplists:proplist(), proplists:proplist(),
-      proplists:proplist()) -> {ok, binary()} | {error, atom()}.
+-spec json(record() | proplists:proplist(), [filter()], [validator()]) ->
+      {ok, binary()} | {error, atom()}.
 json(Subject, Filters, Validators) ->
     chameleon_json:transform(Subject, Filters, Validators).
+
+-spec proplist(binary()) ->
+    {ok, proplists:proplist()} | {error, atom()}.
+proplist(Binary) ->
+    proplist(Binary, [], []).
+
+-spec proplist(binary(), [filter()]) ->
+    {ok, proplists:proplist()} | {error, atom()}.
+proplist(Binary, Filters) ->
+    proplist(Binary, Filters, []).
+
+-spec proplist(binary(), [filter()], [validator()]) ->
+    {ok, proplists:proplist()} | {error, atom()}.
+proplist(Binary, Filters, Validators) ->
+    chameleon_json:transform({proplist, Binary}, Filters, Validators).

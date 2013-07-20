@@ -181,7 +181,7 @@ record_proplist(_Config) ->
 %%% Helpers
 %%%===================================================================
 assert_json(Json, Term) ->
-    JsonFromTerm = chameleon:json(Term),
+    {ok, JsonFromTerm} = chameleon:json(Term),
     Json = iolist_to_binary(JsonFromTerm).
 
 record_from_multiple(Record) ->

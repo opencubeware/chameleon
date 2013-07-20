@@ -14,8 +14,10 @@
 %%%===================================================================
 %%% Public API
 %%%===================================================================
--spec transform(record() | proplists:proplist(), [chameleon:filter()],
-      [chameleon:validator()]) -> {ok, binary()} | {error, atom()}.
+-spec transform(record() | proplists:proplist() | binary(),
+                 [chameleon:filter()], [chameleon:validator()]) -> 
+    {ok, binary()} | {ok, record()} |
+    {ok, proplists:proplist()} | {error, atom()}.
 % @todo handle validation, as for now - filtering only
 transform({proplist, Binary}, Filters, Validators) ->
     Struct = mochijson2:decode(Binary),
@@ -75,4 +77,6 @@ recursive_values([Field|FieldsRest], [Value|ValuesRest], Acc, Records) ->
 struct_to_proplist(List) when is_list(List) ->
     [struct_to_proplist(Element) || Element <- List];
 struct_to_proplist({struct, Proplist}) ->
-    Proplist.
+    [{Key, struct_to_proplist(Value)} || {Key, Value} <- Proplist];
+struct_to_proplist(Other) ->
+    Other.

@@ -29,19 +29,23 @@ suite() ->
 
 all() ->
     [{group, record_extraction},
-     {group, json}].
+     {group, json},
+     {group, proplist}].
 
 groups() ->
     [{record_extraction, [sequence], [multiple,
                                       ets]},
-     {json, [sequence], [simple_terms,
-                         proplist,
-                         nested_proplist,
-                         proplist_list,
-                         record,
-                         record_nested,
-                         record_list,
-                         record_proplist]}].
+     {json, [sequence], [json_simple_terms,
+                         json_proplist,
+                         json_nested_proplist,
+                         json_proplist_list,
+                         json_record,
+                         json_record_nested,
+                         json_record_list,
+                         json_record_proplist]},
+     {proplist, [sequence], [proplist,
+                             proplist_list]}
+    ].
 
 %%%===================================================================
 %%% Init and teardown
@@ -79,19 +83,19 @@ ets(_Config) ->
     [name, {company, company}] = record_from_ets(site),
     [name, surname, {site_one, site}, {site_two, site}] = record_from_ets(person).
 
-simple_terms(_Config) ->
+json_simple_terms(_Config) ->
     assert_json(<<"\"dummy\"">>, dummy),
     assert_json(<<"[1,2,3]">>, [1,2,3]),
     assert_json(<<"[\"one\",\"two\",3]">>, [one, <<"two">>, 3]). 
 
-proplist(_Config) ->
+json_proplist(_Config) ->
     Json = <<"{\"name\":\"Alice\",\"surname\":\"Doe\",\"city\":\"London\","
              "\"country\":\"England\",\"phone\":568111,\"pet\":null}">>,
     Proplist = [{name, <<"Alice">>}, {surname, <<"Doe">>}, {city, <<"London">>},
                 {country, <<"England">>}, {phone, 568111}, {pet, undefined}],
     assert_json(Json, Proplist).
 
-nested_proplist(_Config) ->
+json_nested_proplist(_Config) ->
     Json = <<"{\"name\":\"Alice\",\"surname\":\"Doe\","
              "\"address\":{\"city\":\"London\","
              "\"country\":\"England\",\"street\":"
@@ -103,14 +107,14 @@ nested_proplist(_Config) ->
                                      {number, 12}]}]}],
     assert_json(Json, Proplist).
 
-proplist_list(_Config) ->
+json_proplist_list(_Config) ->
     Json = <<"[{\"name\":\"Alice\",\"city\":\"London\"},"
               "{\"name\":\"Bob\",\"city\":\"New York\"}]">>,
     List = [[{name, <<"Alice">>}, {city, <<"London">>}],
             [{name, <<"Bob">>}, {city, <<"New York">>}]],
     assert_json(Json, List).
 
-record(_Config) ->
+json_record(_Config) ->
     Json = <<"{\"company\":"
              "{\"name\":\"ACME\","
              "\"city\":\"London\","
@@ -120,7 +124,7 @@ record(_Config) ->
                       country = <<"England">>},
     assert_json(Json, Record).
 
-record_nested(_Config) ->
+json_record_nested(_Config) ->
     Json1 = <<"{\"site\":"
               "{\"name\":\"Secret Department\","
               "\"company\":null}}">>,
@@ -140,7 +144,7 @@ record_nested(_Config) ->
                                        country = <<"England">>}},
     assert_json(Json2, Record2).
 
-record_list(_Config) ->
+json_record_list(_Config) ->
     Json1 = <<"{\"site\":"
               "{\"name\":\"Secret Department\","
               "\"company\":null}}">>,
@@ -155,8 +159,7 @@ record_list(_Config) ->
                      country = <<"England">>}],
     assert_json(Json, List).
 
-
-record_proplist(_Config) ->
+json_record_proplist(_Config) ->
     Json1 = <<"{\"site\":"
               "{\"name\":\"Secret Department\","
               "\"company\":null}}">>,
@@ -176,6 +179,28 @@ record_proplist(_Config) ->
                         {street, [{name, <<"Oxford St">>},
                                   {number, 12}]}]}]],
     assert_json(Json, List).
+
+proplist(_Config) ->
+    Json = <<"{\"name\":\"Alice\",\"surname\":\"Doe\","
+             "\"address\":{\"city\":\"London\","
+             "\"country\":\"England\",\"street\":"
+             "{\"name\":\"Oxford St\",\"number\":12}}}">>,
+    Proplist = [{<<"name">>, <<"Alice">>},
+                {<<"surname">>, <<"Doe">>},
+                {<<"address">>, [{<<"city">>, <<"London">>},
+                                 {<<"country">>, <<"England">>},
+                                 {<<"street">>, [{<<"name">>, <<"Oxford St">>},
+                                                 {<<"number">>, 12}]}]}],
+    {ok, Proplist} = chameleon:proplist(Json).
+
+proplist_list(_Config) ->
+    Json = <<"[{\"name\":\"Alice\",\"city\":\"London\"},"
+              "{\"name\":\"Bob\",\"city\":\"New York\"}]">>,
+    List = [[{<<"name">>, <<"Alice">>},
+             {<<"city">>, <<"London">>}],
+            [{<<"name">>, <<"Bob">>},
+             {<<"city">>, <<"New York">>}]],
+    {ok, List} = chameleon:proplist(Json).
 
 %%%===================================================================
 %%% Helpers

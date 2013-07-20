@@ -30,7 +30,8 @@ suite() ->
 all() ->
     [{group, record_extraction},
      {group, json},
-     {group, proplist}].
+     {group, proplist},
+     {group, record}].
 
 groups() ->
     [{record_extraction, [sequence], [multiple,
@@ -44,7 +45,9 @@ groups() ->
                          json_record_list,
                          json_record_proplist]},
      {proplist, [sequence], [proplist,
-                             proplist_list]}
+                             proplist_list]},
+     {record, [sequence], [record,
+                           record_list]}
     ].
 
 %%%===================================================================
@@ -201,6 +204,46 @@ proplist_list(_Config) ->
             [{<<"name">>, <<"Bob">>},
              {<<"city">>, <<"New York">>}]],
     {ok, List} = chameleon:proplist(Json).
+
+record(_Config) ->
+    Json1 = <<"{\"site\":"
+              "{\"name\":\"Secret Department\","
+              "\"company\":null}}">>,
+    Record1 = #site{name = <<"Secret Department">>},
+    {ok, Record1} = chameleon:record(Json1),
+
+    JsonCompany = <<"{\"company\":"
+                    "{\"name\":\"ACME\","
+                    "\"city\":\"London\","
+                    "\"country\":\"England\"}}">>,
+    Json2 = <<"{\"site\":"
+              "{\"name\":\"Secret Department\","
+              "\"company\":",JsonCompany/binary,"}}">>,
+    Record2 = #site{name = <<"Secret Department">>,
+                    company = #company{name = <<"ACME">>,
+                                       city = <<"London">>,
+                                       country = <<"England">>}},
+    {ok, Record2} = chameleon:record(Json2).
+
+record_list(_Config) ->
+    Json1 = <<"{\"site\":"
+              "{\"name\":\"Secret Department\","
+              "\"company\":null}}">>,
+    Record1 = #site{name = <<"Secret Department">>},
+    JsonCompany = <<"{\"company\":"
+                    "{\"name\":\"ACME\","
+                    "\"city\":\"London\","
+                    "\"country\":\"England\"}}">>,
+    Company = #company{name = <<"ACME">>,
+                       city = <<"London">>,
+                       country = <<"England">>},
+    Json2 = <<"{\"site\":"
+              "{\"name\":\"Secret Department\","
+              "\"company\":",JsonCompany/binary,"}}">>,
+    Record2 = #site{name = <<"Secret Department">>,
+                    company = Company},
+    Json = <<"[", Json1/binary, ",", Json2/binary, ",", JsonCompany/binary, "]">>,
+    {ok, [Record1, Record2, Company]} = chameleon:record(Json).
 
 %%%===================================================================
 %%% Helpers

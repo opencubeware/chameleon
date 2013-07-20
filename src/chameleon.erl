@@ -17,7 +17,10 @@
          json/3,
          proplist/1,
          proplist/2,
-         proplist/3]).
+         proplist/3,
+         record/1,
+         record/2,
+         record/3]).
 
 -type record_name() :: atom().
 -type field() :: atom().
@@ -61,7 +64,7 @@ json(Subject, Filters) ->
 -spec json(record() | proplists:proplist(), [filter()], [validator()]) ->
       {ok, binary()} | {error, atom()}.
 json(Subject, Filters, Validators) ->
-    chameleon_json:transform(Subject, Filters, Validators).
+    chameleon_json:transform({json, Subject}, Filters, Validators).
 
 -spec proplist(binary()) ->
     {ok, proplists:proplist()} | {error, atom()}.
@@ -77,3 +80,18 @@ proplist(Binary, Filters) ->
     {ok, proplists:proplist()} | {error, atom()}.
 proplist(Binary, Filters, Validators) ->
     chameleon_json:transform({proplist, Binary}, Filters, Validators).
+
+-spec record(binary()) ->
+    {ok, proplists:proplist()} | {error, atom()}.
+record(Binary) ->
+    record(Binary, [], []).
+
+-spec record(binary(), [filter()]) ->
+    {ok, proplists:proplist()} | {error, atom()}.
+record(Binary, Filters) ->
+    record(Binary, Filters, []).
+
+-spec record(binary(), [filter()], [validator()]) ->
+    {ok, proplists:proplist()} | {error, atom()}.
+record(Binary, Filters, Validators) ->
+    chameleon_json:transform({record, Binary}, Filters, Validators).

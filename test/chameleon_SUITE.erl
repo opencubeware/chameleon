@@ -40,7 +40,8 @@ groups() ->
                          proplist_list,
                          record,
                          record_nested,
-                         record_list]}].
+                         record_list,
+                         record_proplist]}].
 
 %%%===================================================================
 %%% Init and teardown
@@ -91,7 +92,8 @@ proplist(_Config) ->
     assert_json(Json, Proplist).
 
 nested_proplist(_Config) ->
-    Json = <<"{\"name\":\"Alice\",\"surname\":\"Doe\",\"address\":{\"city\":\"London\","
+    Json = <<"{\"name\":\"Alice\",\"surname\":\"Doe\","
+             "\"address\":{\"city\":\"London\","
              "\"country\":\"England\",\"street\":"
              "{\"name\":\"Oxford St\",\"number\":12}}}">>,
     Proplist = [{name, <<"Alice">>}, {surname, <<"Doe">>},
@@ -154,6 +156,26 @@ record_list(_Config) ->
     assert_json(Json, List).
 
 
+record_proplist(_Config) ->
+    Json1 = <<"{\"site\":"
+              "{\"name\":\"Secret Department\","
+              "\"company\":null}}">>,
+    Json2 = <<"[{\"name\":\"Alice\",\"city\":\"London\"},"
+              "{\"name\":\"Bob\",\"city\":\"New York\"}]">>,
+    Json3 = <<"{\"name\":\"Alice\",\"surname\":\"Doe\","
+              "\"address\":{\"city\":\"London\","
+              "\"country\":\"England\",\"street\":"
+              "{\"name\":\"Oxford St\",\"number\":12}}}">>,
+    Json = <<"[", Json1/binary, ",", Json2/binary, ",", Json3/binary, "]">>,
+    List = [#site{name = <<"Secret Department">>},
+            [[{name, <<"Alice">>}, {city, <<"London">>}],
+             [{name, <<"Bob">>}, {city, <<"New York">>}]],
+            [{name, <<"Alice">>}, {surname, <<"Doe">>},
+             {address, [{city, <<"London">>},
+                        {country, <<"England">>},
+                        {street, [{name, <<"Oxford St">>},
+                                  {number, 12}]}]}]],
+    assert_json(Json, List).
 
 %%%===================================================================
 %%% Helpers

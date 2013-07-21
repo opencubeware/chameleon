@@ -24,7 +24,7 @@
 
 -type record_name() :: atom().
 -type field() :: atom().
--type filter() :: {field(), fun()}.
+-type filter() :: {field(), fun() | skip}.
 -type validator() :: {field(), fun()}.
 -type error() :: unprocessable | invalid.
 -export_type([record_name/0, field/0, filter/0, validator/0, error/0]).

@@ -30,7 +30,10 @@ do_transform({record, Binary}, Filters, Validators) ->
     Proplist = binary_to_proplist(Binary),
     {ok, proplist_to_record(Proplist)};
 do_transform({proplist, Binary}, Filters, Validators) ->
-    {ok, binary_to_proplist(Binary)};
+    Proplist = binary_to_proplist(Binary),
+    Dict = dict:from_list(Filters),
+    Filtered = filter_proplist(Proplist, Dict),
+    {ok, Filtered};
 do_transform({json, Subject}, Filters, Validators) ->
     Records = dict:from_list(ets:tab2list(?RECORDS_TABLE)),
     Prepared = prepare_struct(Subject, Records),
@@ -113,3 +116,16 @@ find_field(Field, Dict, Map) ->
         {ok, Value} -> Map(Value);
         error -> undefined
     end.
+
+filter_proplist([{_,_}|_]=Proplist, Filters) ->
+    lists:foldr(fun({Key, [{_,_}|_]=Val}, Acc) ->
+                [{Key, filter_proplist(Val, Filters)}|Acc];
+            ({Key, Val}, Acc) ->
+                case dict:find(Key, Filters) of
+                    {ok, skip} -> Acc;
+                    {ok, Fun} when is_function(Fun) -> [{Key, Fun(Val)}|Acc];
+                    error -> [{Key, Val}|Acc]
+                end
+        end, [], Proplist);
+filter_proplist(List, Filters) when is_list(List) ->
+    [filter_proplist(Proplist, Filters) || Proplist <- List].

@@ -45,8 +45,10 @@ groups() ->
                          json_record_list,
                          json_record_proplist]},
      {proplist, [sequence], [proplist,
+                             proplist_negative,
                              proplist_list]},
      {record, [sequence], [record,
+                           record_negative,
                            record_list]}
     ].
 
@@ -196,6 +198,13 @@ proplist(_Config) ->
                                                  {<<"number">>, 12}]}]}],
     {ok, Proplist} = chameleon:proplist(Json).
 
+proplist_negative(_Config) ->
+    Json = <<"{\"name\":\"Alice\",\"surname\":\"Doe\","
+             "\"address\":{\"city\":\"London\","
+             "\"country\":\"England\",\"street\":"
+             "{\"name\":\"Oxford St\",\"number\":1}">>,
+    {error, unprocessable} = chameleon:proplist(Json).
+
 proplist_list(_Config) ->
     Json = <<"[{\"name\":\"Alice\",\"city\":\"London\"},"
               "{\"name\":\"Bob\",\"city\":\"New York\"}]">>,
@@ -224,6 +233,17 @@ record(_Config) ->
                                        city = <<"London">>,
                                        country = <<"England">>}},
     {ok, Record2} = chameleon:record(Json2).
+
+record_negative(_Config) ->
+    Json1 = <<"{\"site\":"
+              "\"name\":\"Secret Department\","
+              "\"company\":null}}">>,
+    {error, unprocessable} = chameleon:record(Json1),
+
+    Json2 = <<"{\"inexistent\":"
+              "\"field_one\": 1,"
+              "\"field_two\": \"some_value\"}">>,
+    {error, unprocessable} = chameleon:record(Json2).
 
 record_list(_Config) ->
     Json1 = <<"{\"site\":"

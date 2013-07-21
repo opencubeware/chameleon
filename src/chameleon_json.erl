@@ -17,14 +17,21 @@
 -spec transform(record() | proplists:proplist() | binary(),
                  [chameleon:filter()], [chameleon:validator()]) -> 
     {ok, binary()} | {ok, record()} |
-    {ok, proplists:proplist()} | {error, atom()}.
+    {ok, proplists:proplist()} | {error, chameleon:error()}.
 % @todo handle validation, as for now - filtering only
-transform({record, Binary}, Filters, Validators) ->
+transform(Subject, Filters, Validators) ->
+    try
+        do_transform(Subject, Filters, Validators)
+    catch _:_ ->
+        {error, unprocessable}
+    end.
+
+do_transform({record, Binary}, Filters, Validators) ->
     Proplist = binary_to_proplist(Binary),
     {ok, proplist_to_record(Proplist)};
-transform({proplist, Binary}, Filters, Validators) ->
+do_transform({proplist, Binary}, Filters, Validators) ->
     {ok, binary_to_proplist(Binary)};
-transform({json, Subject}, Filters, Validators) ->
+do_transform({json, Subject}, Filters, Validators) ->
     Records = dict:from_list(ets:tab2list(?RECORDS_TABLE)),
     Prepared = prepare_struct(Subject, Records),
     {ok, mochijson2:encode(Prepared)}.

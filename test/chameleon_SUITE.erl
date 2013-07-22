@@ -17,7 +17,7 @@
 %%%===================================================================
 -record(company, {name, city :: list(), country :: integer()}).
 -record(site, {name, company :: #company{}}).
--record(person, {name, surname,
+-record(person, {name, surname = <<"Doe">>,
                  site_one :: #site{},
                  site_two :: #site{}}).
 
@@ -41,6 +41,7 @@ groups() ->
                          json_nested_proplist,
                          json_proplist_list,
                          json_record,
+                         json_record_default,
                          json_record_nested,
                          json_record_list,
                          json_record_proplist]},
@@ -48,6 +49,7 @@ groups() ->
                              proplist_negative,
                              proplist_list]},
      {record, [sequence], [record,
+                           record_default,
                            record_negative,
                            record_list]}
     ].
@@ -79,14 +81,26 @@ end_per_testcase(_TestcaseName, _Config) ->
 %%% Tests
 %%%===================================================================
 multiple(_Config) ->
-    [name, city, country] = record_from_multiple(company),
-    [name, {company, company}] = record_from_multiple(site),
-    [name, surname, {site_one, site}, {site_two, site}] = record_from_multiple(person).
+    [{name, undefined},
+     {city, undefined},
+     {country, undefined}] = record_from_multiple(company),
+    [{name, undefined},
+     {company, company, undefined}] = record_from_multiple(site),
+    [{name, undefined},
+     {surname, <<"Doe">>},
+     {site_one, site, undefined},
+     {site_two, site, undefined}] = record_from_multiple(person).
 
 ets(_Config) ->
-    [name, city, country] = record_from_ets(company),
-    [name, {company, company}] = record_from_ets(site),
-    [name, surname, {site_one, site}, {site_two, site}] = record_from_ets(person).
+    [{name, undefined},
+     {city, undefined},
+     {country, undefined}] = record_from_ets(company),
+    [{name, undefined},
+     {company, company, undefined}] = record_from_ets(site),
+    [{name, undefined},
+     {surname, <<"Doe">>},
+     {site_one, site, undefined},
+     {site_two, site, undefined}] = record_from_ets(person).
 
 json_simple_terms(_Config) ->
     assert_json(<<"\"dummy\"">>, dummy),
@@ -127,6 +141,15 @@ json_record(_Config) ->
     Record = #company{name = <<"ACME">>,
                       city = <<"London">>,
                       country = <<"England">>},
+    assert_json(Json, Record).
+
+json_record_default(_Config) ->
+    Json = <<"{\"person\":"
+             "{\"name\":\"Jane\","
+             "\"surname\":\"Doe\","
+             "\"site_one\":null,"
+             "\"site_two\":null}}">>,
+    Record = #person{name = <<"Jane">>},
     assert_json(Json, Record).
 
 json_record_nested(_Config) ->
@@ -233,6 +256,13 @@ record(_Config) ->
                                        city = <<"London">>,
                                        country = <<"England">>}},
     {ok, Record2} = chameleon:record(Json2).
+
+record_default(_Config) ->
+    Json = <<"{\"person\":"
+             "{\"name\":\"Jane\"}}">>,
+    Record = #person{name = <<"Jane">>,
+                     surname = <<"Doe">>},
+    {ok, Record} = chameleon:record(Json).
 
 record_negative(_Config) ->
     Json1 = <<"{\"site\":"

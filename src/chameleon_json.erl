@@ -75,14 +75,14 @@ recursive_zipwith([Record | Values], Acc, Records) ->
 
 recursive_values([], [], Acc, _Records) ->
     lists:reverse(Acc);
-recursive_values([{Field, _Record}|FieldsRest], [undefined|ValuesRest],
+recursive_values([{Field,_Record,_Default}|FieldsRest], [undefined|ValuesRest],
                  Acc, Records) ->
     recursive_values(FieldsRest, ValuesRest, [{Field, undefined}|Acc], Records);
-recursive_values([{Field, Record}|FieldsRest],
+recursive_values([{Field,Record,_Default}|FieldsRest],
                  [[Record|_]=Values|ValuesRest], Acc, Records) ->
     Acc1 = [{Field, recursive_zipwith(Values, [], Records)}|Acc],
     recursive_values(FieldsRest, ValuesRest, Acc1, Records);
-recursive_values([Field|FieldsRest], [Value|ValuesRest], Acc, Records) ->
+recursive_values([{Field,_Default}|FieldsRest], [Value|ValuesRest], Acc, Records) ->
     recursive_values(FieldsRest, ValuesRest, [{Field, Value}|Acc], Records).
 
 binary_to_proplist(Binary) ->
@@ -100,21 +100,21 @@ proplist_to_record([{RecordB, Proplist}]) ->
     Dict = dict:from_list(Proplist),
     Record = binary_to_existing_atom(RecordB, utf8),
     [{Record, Fields}] = ets:lookup(?RECORDS_TABLE, Record),
-    Values = lists:map(fun({Field, _Relation}) ->
-                    find_field(Field, Dict, fun proplist_to_record/1);
-                (Field) ->
-                    find_field(Field, Dict, fun(X) -> X end)
+    Values = lists:map(fun({Field, _Relation, Default}) ->
+                    find_field(Field, Dict, fun proplist_to_record/1, Default);
+                ({Field, Default}) ->
+                    find_field(Field, Dict, fun(X) -> X end, Default)
             end, Fields),
     list_to_tuple([Record | Values]);
 proplist_to_record(List) when is_list(List) ->
     [proplist_to_record(Record) || Record <- List].
 
-find_field(Field, Dict, Map) ->
+find_field(Field, Dict, Map, Default) ->
     FieldB = atom_to_binary(Field, utf8),
     case dict:find(FieldB, Dict) of
-        {ok, null} -> undefined;
+        {ok, null} -> Default;
         {ok, Value} -> Map(Value);
-        error -> undefined
+        error -> Default
     end.
 
 filter_proplist([{_,_}|_]=Proplist, Filters) ->

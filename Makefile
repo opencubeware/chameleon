@@ -8,6 +8,7 @@ deps: rebar
 
 clean: rebar
 	./rebar clean
+	rm test/*.beam
 
 rebar:
 	wget -q http://cloud.github.com/downloads/basho/rebar/rebar

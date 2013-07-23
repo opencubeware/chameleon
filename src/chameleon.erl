@@ -24,8 +24,9 @@
 
 -type record_name() :: atom().
 -type field() :: atom().
--type filter() :: {field(), fun() | skip}.
--type validator() :: {field(), fun()}.
+-type filter() :: {path(), fun() | skip}.
+-type validator() :: {path(), fun()}.
+-type path() :: [field()].
 -type error() :: unprocessable | invalid.
 -export_type([record_name/0, field/0, filter/0, validator/0, error/0]).
 
@@ -46,11 +47,11 @@ records(Module) ->
 
 -spec post_filters(record_name(), [filter()]) -> true.
 post_filters(Record, Filters) ->
-    true = ets:insert(?POST_FILTERS_TABLE, {Record, Filters}).
+    add_filters(?POST_FILTERS_TABLE, Record, Filters).
 
 -spec pre_filters(record_name(), [filter()]) -> true.
 pre_filters(Record, Filters) ->
-    true = ets:insert(?PRE_FILTERS_TABLE, {Record, Filters}).
+    add_filters(?PRE_FILTERS_TABLE, Record, Filters).
 
 -spec json(record() | proplists:proplist()) ->
       {ok, binary()} | {error, error()}.
@@ -96,3 +97,10 @@ record(Binary, Filters) ->
     {ok, proplists:proplist()} | {error, error()}.
 record(Binary, Filters, Validators) ->
     chameleon_json:transform({record, Binary}, Filters, Validators).
+
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
+add_filters(Table, Record, Filters) ->
+    TaggedFilters = [{Record, Filter} || Filter <- Filters],
+    true = ets:insert(Table, {Record, TaggedFilters}).

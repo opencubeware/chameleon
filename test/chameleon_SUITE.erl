@@ -31,7 +31,8 @@ all() ->
     [{group, record_extraction},
      {group, json},
      {group, proplist},
-     {group, record}].
+     {group, record},
+     {group, filter}].
 
 groups() ->
     [{record_extraction, [sequence], [multiple,
@@ -51,7 +52,8 @@ groups() ->
      {record, [sequence], [record,
                            record_default,
                            record_negative,
-                           record_list]}
+                           record_list]},
+     {filter, [sequence], [filter_proplist]}
     ].
 
 %%%===================================================================
@@ -294,6 +296,22 @@ record_list(_Config) ->
                     company = Company},
     Json = <<"[", Json1/binary, ",", Json2/binary, ",", JsonCompany/binary, "]">>,
     {ok, [Record1, Record2, Company]} = chameleon:record(Json).
+
+filter_proplist(_Config) ->
+    Json = <<"{\"name\":\"Alice\",\"surname\":\"Doe\","
+             "\"address\":{\"city\":\"London\","
+             "\"country\":\"England\",\"street\":"
+             "{\"name\":\"Oxford St\",\"number\":12}}}">>,
+    Proplist = [{<<"name">>, "Alice"},
+                {<<"address">>, [{<<"city">>, <<"London">>},
+                                 {<<"country">>, 'Poland'},
+                                 {<<"street">>,
+                                  [{<<"name">>, <<"Oxford St">>}]}]}],
+    Filters = [{[<<"name">>], fun(X) -> binary_to_list(X) end},
+               {[<<"surname">>], skip},
+               {[address, country], fun(_) -> 'Poland' end},
+               {[<<"address">>, street, <<"number">>], skip}],
+    {ok, Proplist} = chameleon:proplist(Json, Filters).
 
 %%%===================================================================
 %%% Helpers

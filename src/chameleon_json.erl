@@ -31,8 +31,7 @@ do_transform({record, Binary}, Filters, Validators) ->
     {ok, proplist_to_record(Proplist)};
 do_transform({proplist, Binary}, Filters, Validators) ->
     Proplist = binary_to_proplist(Binary),
-    Dict = dict:from_list(Filters),
-    Filtered = filter_proplist(Proplist, Dict),
+    Filtered = filter(Proplist, Filters),
     {ok, Filtered};
 do_transform({json, Subject}, Filters, Validators) ->
     Records = dict:from_list(ets:tab2list(?RECORDS_TABLE)),
@@ -50,7 +49,7 @@ prepare_struct(Record, Records) when is_tuple(Record) ->
     RecordList = recursive_tuple_to_list(Record),
     case dict:is_key(hd(RecordList), Records) of
         true ->
-            RecordProplist = recursive_zipwith(RecordList, [], Records),
+            RecordProplist = recursive_zip(RecordList, [], Records),
             prepare_struct(RecordProplist, Records);
         false ->
             Record
@@ -67,9 +66,9 @@ recursive_tuple_to_list(Tuple) ->
                  (Other) -> Other
         end, tuple_to_list(Tuple)).
 
-recursive_zipwith([], Acc, _Records) ->
+recursive_zip([], Acc, _Records) ->
     lists:reverse(Acc);
-recursive_zipwith([Record | Values], Acc, Records) ->
+recursive_zip([Record | Values], Acc, Records) ->
     Fields = dict:fetch(Record, Records),
     [{Record, recursive_values(Fields, Values, [], Records)}|Acc].
 
@@ -80,7 +79,7 @@ recursive_values([{Field,_Record,_Default}|FieldsRest], [undefined|ValuesRest],
     recursive_values(FieldsRest, ValuesRest, [{Field, undefined}|Acc], Records);
 recursive_values([{Field,Record,_Default}|FieldsRest],
                  [[Record|_]=Values|ValuesRest], Acc, Records) ->
-    Acc1 = [{Field, recursive_zipwith(Values, [], Records)}|Acc],
+    Acc1 = [{Field, recursive_zip(Values, [], Records)}|Acc],
     recursive_values(FieldsRest, ValuesRest, Acc1, Records);
 recursive_values([{Field,_Default}|FieldsRest], [Value|ValuesRest], Acc, Records) ->
     recursive_values(FieldsRest, ValuesRest, [{Field, Value}|Acc], Records).
@@ -117,15 +116,27 @@ find_field(Field, Dict, Map, Default) ->
         error -> Default
     end.
 
-filter_proplist([{_,_}|_]=Proplist, Filters) ->
+filter([{_,_}|_]=Proplist, Filters) ->
     lists:foldr(fun({Key, [{_,_}|_]=Val}, Acc) ->
-                [{Key, filter_proplist(Val, Filters)}|Acc];
+                NewFilters = lists:foldr(fun({[_], _Value}, Acc1) ->
+                                Acc1;
+                            ({[_|Rest], Value}, Acc1) ->
+                                [{Rest, Value}|Acc1];
+                            (_Other, Acc1) ->
+                                Acc1
+                        end, [], Filters),
+                [{Key, filter(Val, NewFilters)}|Acc];
             ({Key, Val}, Acc) ->
-                case dict:find(Key, Filters) of
-                    {ok, skip} -> Acc;
-                    {ok, Fun} when is_function(Fun) -> [{Key, Fun(Val)}|Acc];
-                    error -> [{Key, Val}|Acc]
+                FixedFilters = lists:map(fun({[K],V}) when is_atom(K) ->
+                                {atom_to_binary(K, utf8), V};
+                            ({[K],V}) -> {K,V};
+                            (Other) -> Other
+                        end, Filters),
+                case lists:keyfind(Key, 1, FixedFilters) of
+                    {Key, skip} -> Acc;
+                    {Key, Fun} when is_function(Fun) -> [{Key, Fun(Val)}|Acc];
+                    _ -> [{Key, Val}|Acc]
                 end
         end, [], Proplist);
-filter_proplist(List, Filters) when is_list(List) ->
-    [filter_proplist(Proplist, Filters) || Proplist <- List].
+filter(List, Filters) when is_list(List) ->
+    [filter(Element, Filters) || Element <- List].

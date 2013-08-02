@@ -16,7 +16,6 @@ parse_transform(Input, _) ->
     State1 = extract_records(Input, #state{}),
     State2 = extract_types(Input, State1),
     Tree = modify_tree(Input, [], State2),
-    error_logger:info_msg("~p~n", [Tree]),
     Tree.
 
 modify_tree([{eof,_}=Eof], Acc, #state{records=Records}) ->

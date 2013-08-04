@@ -53,7 +53,10 @@ groups() ->
                            record_default,
                            record_negative,
                            record_list]},
-     {filter, [sequence], [filter_proplist]}
+     {filter, [sequence], [filter_record,
+                           filter_record_list,
+                           filter_json,
+                           filter_json_list]}
     ].
 
 %%%===================================================================
@@ -297,27 +300,102 @@ record_list(_Config) ->
     Json = <<"[", Json1/binary, ",", Json2/binary, ",", JsonCompany/binary, "]">>,
     {ok, [Record1, Record2, Company]} = chameleon:record(Json).
 
-filter_proplist(_Config) ->
-    Json = <<"{\"name\":\"Alice\",\"surname\":\"Doe\","
-             "\"address\":{\"city\":\"London\","
-             "\"country\":\"England\",\"street\":"
-             "{\"name\":\"Oxford St\",\"number\":12}}}">>,
-    Proplist = [{<<"name">>, "Alice"},
-                {<<"address">>, [{<<"city">>, <<"London">>},
-                                 {<<"country">>, 'Poland'},
-                                 {<<"street">>,
-                                  [{<<"name">>, <<"Oxford St">>}]}]}],
-    Filters = [{[<<"name">>], fun(X) -> binary_to_list(X) end},
-               {[<<"surname">>], skip},
-               {[address, country], fun(_) -> 'Poland' end},
-               {[<<"address">>, street, <<"number">>], skip}],
-    {ok, Proplist} = chameleon:proplist(Json, Filters).
+filter_record(_Config) ->
+    JsonCompany = <<"{\"company\":"
+                    "{\"name\":\"ACME\","
+                    "\"city\":\"London\","
+                    "\"country\":\"England\"}}">>,
+    Json1 = <<"{\"site\":"
+              "{\"name\":\"Secret Department\","
+              "\"company\":",JsonCompany/binary,"}}">>,
+    Record1 = #site{name = "Secret Department",
+                    company = #company{name = <<"ACME">>,
+                                       city = undefined,
+                                       country = 'England'}},
+    Filter = fun(Site=#site{name=Name,
+                            company=Company=#company{country=Country}}) ->
+            Company1 = Company#company{city=undefined,
+                                       country=binary_to_atom(Country, utf8)},
+            Site#site{name=binary_to_list(Name),
+                      company=Company1}
+    end,
+    {ok, Record1} = chameleon:record(Json1, Filter).
 
+filter_record_list(_Config) ->
+    Json1 = <<"{\"site\":"
+              "{\"name\":\"Secret Department1\","
+              "\"company\":null}}">>,
+    Record1 = #site{name = "Secret Department1"},
+    JsonCompany = <<"{\"company\":"
+                    "{\"name\":\"ACME\","
+                    "\"city\":\"London\","
+                    "\"country\":\"England\"}}">>,
+    Company = #company{name = <<"ACME">>,
+                       city = <<"London">>,
+                       country = <<"England">>},
+    Company1 = #company{name = 'ACME',
+                       city = <<"London">>,
+                       country = <<"England">>},
+    Json2 = <<"{\"site\":"
+              "{\"name\":\"Secret Department2\","
+              "\"company\":",JsonCompany/binary,"}}">>,
+    Record2 = #site{name = "Secret Department2",
+                    company = Company},
+    Filter = fun(Site=#site{name=Name}) ->
+            Site#site{name=binary_to_list(Name)};
+        (Comp=#company{name=Name}) ->
+            Comp#company{name=binary_to_atom(Name, utf8)}
+    end,
+    Json = <<"[", Json1/binary, ",", Json2/binary, ",", JsonCompany/binary, "]">>,
+    {ok, [Record1, Record2, Company1]} = chameleon:record(Json, Filter).
+
+filter_json(_Config) ->
+    JsonCompany = <<"{\"company\":"
+                    "{\"name\":\"ACME\","
+                    "\"city\":null,"
+                    "\"country\":\"England\"}}">>,
+    Json = <<"{\"site\":"
+             "{\"name\":123,"
+             "\"company\":",JsonCompany/binary,"}}">>,
+    Record = #site{name = <<"Secret Department">>,
+                   company = #company{name = <<"ACME">>,
+                                      city = <<"London">>,
+                                      country = <<"England">>}},
+    Filter = fun(Site=#site{company=Company}) ->
+            Company1 = Company#company{city=undefined},
+            Site#site{name=123,
+                      company=Company1}
+    end,
+    assert_json(Json, Record, Filter).
+
+filter_json_list(_Config) ->
+    Json1 = <<"{\"site\":"
+              "{\"name\":null,"
+              "\"company\":null}}">>,
+    Json2 = <<"{\"company\":"
+              "{\"name\":null,"
+              "\"city\":\"London\","
+              "\"country\":\"England\"}}">>,
+    Json = <<"[", Json1/binary, ",", Json2/binary, "]">>,
+    Filter = fun(Site=#site{}) ->
+            Site#site{name=undefined};
+        (Company=#company{}) ->
+            Company#company{name=undefined}
+    end,
+    List = [#site{name = <<"Secret Department">>},
+            #company{name = <<"ACME">>,
+                     city = <<"London">>,
+                     country = <<"England">>}],
+    assert_json(Json, List, Filter).
 %%%===================================================================
 %%% Helpers
 %%%===================================================================
 assert_json(Json, Term) ->
     {ok, JsonFromTerm} = chameleon:json(Term),
+    Json = iolist_to_binary(JsonFromTerm).
+
+assert_json(Json, Term, Filter) ->
+    {ok, JsonFromTerm} = chameleon:json(Term, Filter),
     Json = iolist_to_binary(JsonFromTerm).
 
 record_from_multiple(Record) ->

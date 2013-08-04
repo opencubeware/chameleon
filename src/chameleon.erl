@@ -10,25 +10,19 @@
 -include("chameleon.hrl").
 
 -export([records/1,
-         post_filters/2,
-         pre_filters/2,
+         input_filter/2,
+         output_filter/2,
          json/1,
          json/2,
-         json/3,
          proplist/1,
-         proplist/2,
-         proplist/3,
          record/1,
-         record/2,
-         record/3]).
+         record/2]).
 
 -type record_name() :: atom().
 -type field() :: atom().
--type filter() :: {path(), fun() | skip}.
--type validator() :: {path(), fun()}.
--type path() :: [field()].
+-type filter() :: {record_name(), fun() | invalid}.
 -type error() :: unprocessable | invalid.
--export_type([record_name/0, field/0, filter/0, validator/0, error/0]).
+-export_type([record_name/0, field/0, filter/0, error/0]).
 
 %%%===================================================================
 %%% Public API
@@ -45,62 +39,41 @@ records(Modules) when is_list(Modules) ->
 records(Module) ->
     records([Module]).
 
--spec post_filters(record_name(), [filter()]) -> true.
-post_filters(Record, Filters) ->
-    add_filters(?POST_FILTERS_TABLE, Record, Filters).
+-spec output_filter(record_name(), filter()) -> true.
+output_filter(Record, Filter) ->
+    add_filter(?OUTPUT_FILTERS_TABLE, Record, Filter).
 
--spec pre_filters(record_name(), [filter()]) -> true.
-pre_filters(Record, Filters) ->
-    add_filters(?PRE_FILTERS_TABLE, Record, Filters).
+-spec input_filter(record_name(), filter()) -> true.
+input_filter(Record, Filter) ->
+    add_filter(?INPUT_FILTERS_TABLE, Record, Filter).
 
 -spec json(record() | proplists:proplist()) ->
       {ok, binary()} | {error, error()}.
 json(Subject) ->
-   json(Subject, [], []). 
+    json(Subject, fun(X) -> X end). 
 
--spec json(record() | proplists:proplist(), [filter()]) ->
+-spec json(record() | proplists:proplist(), filter()) ->
       {ok, binary()} | {error, error()}.
-json(Subject, Filters) ->
-    json(Subject, Filters, []).
-
--spec json(record() | proplists:proplist(), [filter()], [validator()]) ->
-      {ok, binary()} | {error, error()}.
-json(Subject, Filters, Validators) ->
-    chameleon_json:transform({json, Subject}, Filters, Validators).
+json(Subject, Filter) ->
+    chameleon_json:transform({json, Subject}, Filter).
 
 -spec proplist(binary()) ->
     {ok, proplists:proplist()} | {error, error()}.
 proplist(Binary) ->
-    proplist(Binary, [], []).
-
--spec proplist(binary(), [filter()]) ->
-    {ok, proplists:proplist()} | {error, error()}.
-proplist(Binary, Filters) ->
-    proplist(Binary, Filters, []).
-
--spec proplist(binary(), [filter()], [validator()]) ->
-    {ok, proplists:proplist()} | {error, error()}.
-proplist(Binary, Filters, Validators) ->
-    chameleon_json:transform({proplist, Binary}, Filters, Validators).
+    chameleon_json:transform({proplist, Binary}, fun(X) -> X end).
 
 -spec record(binary()) ->
     {ok, proplists:proplist()} | {error, error()}.
 record(Binary) ->
-    record(Binary, [], []).
+    record(Binary, fun(X) -> X end).
 
--spec record(binary(), [filter()]) ->
+-spec record(binary(), filter()) ->
     {ok, proplists:proplist()} | {error, error()}.
-record(Binary, Filters) ->
-    record(Binary, Filters, []).
-
--spec record(binary(), [filter()], [validator()]) ->
-    {ok, proplists:proplist()} | {error, error()}.
-record(Binary, Filters, Validators) ->
-    chameleon_json:transform({record, Binary}, Filters, Validators).
+record(Binary, Filter) ->
+    chameleon_json:transform({record, Binary}, Filter).
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-add_filters(Table, Record, Filters) ->
-    TaggedFilters = [{Record, Filter} || Filter <- Filters],
-    true = ets:insert(Table, {Record, TaggedFilters}).
+add_filter(Table, Record, Filter) ->
+    true = ets:insert(Table, {Record, Filter}).

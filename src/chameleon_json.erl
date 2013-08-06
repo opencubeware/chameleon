@@ -45,10 +45,15 @@ prepare_struct({Key, [{_,_}|_]=Proplist}, Records, Filter) ->
 prepare_struct({Key, undefined}, _Records, _Filter) ->
     {Key, null};
 prepare_struct(Record, Records, Filter) when is_tuple(Record) ->
-    FilteredRecord = Filter(Record),
-    RecordList = recursive_tuple_to_list(FilteredRecord),
-    case dict:is_key(hd(RecordList), Records) of
+    [RecordName|_] = tuple_to_list(Record),
+    Filter2 = case ets:lookup(?OUTPUT_FILTERS_TABLE, RecordName) of
+        [{RecordName, Filter1}] -> joint_filter(Filter1, Filter);
+        _                       -> Filter
+    end,
+    FilteredRecord = Filter2(Record),
+    case dict:is_key(RecordName, Records) of
         true ->
+            RecordList = recursive_tuple_to_list(FilteredRecord),
             RecordProplist = recursive_zip(RecordList, [], Records),
             prepare_struct(RecordProplist, Records, fun(X) -> X end);
         false ->
@@ -106,7 +111,11 @@ proplist_to_record([{RecordB, Proplist}], Filter) ->
                     find_field(Field, Dict, fun(X,_F) -> X end,
                                Default)
             end, Fields),
-    Filter(list_to_tuple([Record | Values]));
+    Filter2 = case ets:lookup(?INPUT_FILTERS_TABLE, Record) of
+        [{Record, Filter1}] -> joint_filter(Filter1, Filter);
+        _                   -> Filter
+    end,
+    Filter2(list_to_tuple([Record | Values]));
 proplist_to_record(List, Filter) when is_list(List) ->
     [proplist_to_record(Record, Filter) || Record <- List].
 
@@ -117,3 +126,6 @@ find_field(Field, Dict, Map, Default) ->
         {ok, Value} -> Map(Value, fun(X) -> X end);
         error -> Default
     end.
+
+joint_filter(F1, F2) ->
+    fun(X) -> F2(F1(X)) end.

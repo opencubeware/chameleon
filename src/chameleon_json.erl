@@ -29,7 +29,12 @@ do_transform({record, Binary}, Filter) ->
     Proplist = binary_to_proplist(Binary), 
     Record = proplist_to_record(Proplist, Filter), 
     {ok, Record};
-do_transform({proplist, Binary}, _Filter) ->
+do_transform({proplist, Record}, _Filter)
+        when is_tuple(Record); is_list(Record) ->
+    Records = dict:from_list(ets:tab2list(?RECORDS_TABLE)),
+    Proplist = record_to_proplist(Record, Records),
+    {ok, Proplist};
+do_transform({proplist, Binary}, _Filter) when is_binary(Binary) ->
     Proplist = binary_to_proplist(Binary),
     {ok, Proplist};
 do_transform({json, Subject}, Filter) ->
@@ -54,7 +59,7 @@ prepare_struct(Record, Records, Filter) when is_tuple(Record) ->
     case dict:is_key(RecordName, Records) of
         true ->
             RecordList = recursive_tuple_to_list(FilteredRecord),
-            RecordProplist = recursive_zip(RecordList, [], Records),
+            RecordProplist = recursive_zip(RecordList, [], Records, yes),
             prepare_struct(RecordProplist, Records, fun(X) -> X end);
         false ->
             Record
@@ -71,23 +76,30 @@ recursive_tuple_to_list(Tuple) ->
                  (Other) -> Other
         end, tuple_to_list(Tuple)).
 
-recursive_zip([], Acc, _Records) ->
+recursive_zip([], Acc, _Records, _Roots) ->
     lists:reverse(Acc);
-recursive_zip([Record | Values], Acc, Records) ->
+recursive_zip([Record | Values], Acc, Records, Roots) ->
     Fields = dict:fetch(Record, Records),
-    [{Record, recursive_values(Fields, Values, [], Records)}|Acc].
+    RecVal = recursive_values(Fields, Values, [], Records, Roots),
+    case Roots of
+        yes -> [{Record, RecVal} | Acc];
+        no  -> RecVal ++ Acc
+    end.
 
-recursive_values([], [], Acc, _Records) ->
+recursive_values([], [], Acc, _Records, _Roots) ->
     lists:reverse(Acc);
 recursive_values([{Field,_Record,_Default}|FieldsRest], [undefined|ValuesRest],
-                 Acc, Records) ->
-    recursive_values(FieldsRest, ValuesRest, [{Field, undefined}|Acc], Records);
+                 Acc, Records, Roots) ->
+    recursive_values(FieldsRest, ValuesRest, [{Field, undefined}|Acc],
+                     Records, Roots);
 recursive_values([{Field,Record,_Default}|FieldsRest],
-                 [[Record|_]=Values|ValuesRest], Acc, Records) ->
-    Acc1 = [{Field, recursive_zip(Values, [], Records)}|Acc],
-    recursive_values(FieldsRest, ValuesRest, Acc1, Records);
-recursive_values([{Field,_Default}|FieldsRest], [Value|ValuesRest], Acc, Records) ->
-    recursive_values(FieldsRest, ValuesRest, [{Field, Value}|Acc], Records).
+                 [[Record|_]=Values|ValuesRest], Acc, Records, Roots) ->
+    Acc1 = [{Field, recursive_zip(Values, [], Records, Roots)}|Acc],
+    recursive_values(FieldsRest, ValuesRest, Acc1, Records, Roots);
+recursive_values([{Field,_Default}|FieldsRest], [Value|ValuesRest], Acc,
+                 Records, Roots) ->
+    recursive_values(FieldsRest, ValuesRest, [{Field, Value}|Acc],
+                     Records, Roots).
 
 binary_to_proplist(Binary) ->
     Struct = mochijson2:decode(Binary),
@@ -129,3 +141,9 @@ find_field(Field, Dict, Map, Default) ->
 
 joint_filter(F1, F2) ->
     fun(X) -> F2(F1(X)) end.
+
+record_to_proplist(List, Records) when is_list(List) ->
+    [record_to_proplist(Record, Records) || Record <- List];
+record_to_proplist(Record, Records) ->
+    RecordList = recursive_tuple_to_list(Record),
+    recursive_zip(RecordList, [], Records, no).

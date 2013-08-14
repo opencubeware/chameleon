@@ -57,10 +57,10 @@ json(Subject) ->
 json(Subject, Filter) ->
     chameleon_json:transform({json, Subject}, Filter).
 
--spec proplist(binary()) ->
+-spec proplist(binary() | record()) ->
     {ok, proplists:proplist()} | {error, error()}.
-proplist(Binary) ->
-    chameleon_json:transform({proplist, Binary}, fun(X) -> X end).
+proplist(Subject) ->
+    chameleon_json:transform({proplist, Subject}, fun(X) -> X end).
 
 -spec record(binary()) ->
     {ok, proplists:proplist()} | {error, error()}.

@@ -20,6 +20,9 @@
 -record(person, {name, surname = <<"Doe">>,
                  site_one :: #site{},
                  site_two :: #site{}}).
+-record(street, {name, number}).
+-record(address, {city, country, street :: #street{}}).
+-record(person1, {name, surname, address :: #address{}}).
 
 %%%===================================================================
 %%% Suite configuration
@@ -48,11 +51,14 @@ groups() ->
                          json_record_proplist]},
      {proplist, [sequence], [proplist,
                              proplist_negative,
-                             proplist_list]},
+                             proplist_list,
+                             proplist_record,
+                             proplist_record_list]},
      {record, [sequence], [record,
                            record_default,
                            record_negative,
-                           record_list]},
+                           record_list
+                           ]},
      {filter, [sequence], [filter_record,
                            filter_record_list,
                            filter_json,
@@ -241,6 +247,36 @@ proplist_list(_Config) ->
             [{<<"name">>, <<"Bob">>},
              {<<"city">>, <<"New York">>}]],
     {ok, List} = chameleon:proplist(Json).
+
+proplist_record(_Config) ->
+    Street = #street{name = <<"Oxford St">>,
+                     number = 12},
+    Address = #address{city = <<"London">>,
+                       country = <<"England">>,
+                       street = Street},
+    Record = #person1{name = <<"Alice">>,
+                     surname = <<"Doe">>,
+                     address = Address},
+    Proplist = [{name, <<"Alice">>},
+                {surname, <<"Doe">>},
+                {address, [{city, <<"London">>},
+                           {country, <<"England">>},
+                           {street, [{name, <<"Oxford St">>},
+                                     {number, 12}]}]}],
+    {ok, Proplist} = chameleon:proplist(Record).
+
+proplist_record_list(_Config) ->
+    Records = [#person{name = <<"Alice">>, surname = <<"Doe">>},
+               #person{name = <<"Bob">>, surname = <<"Smith">>}],
+    List = [[{name, <<"Alice">>},
+             {surname, <<"Doe">>},
+             {site_one, undefined},
+             {site_two, undefined}],
+            [{name, <<"Bob">>},
+             {surname, <<"Smith">>},
+             {site_one, undefined},
+             {site_two, undefined}]],
+    {ok, List} = chameleon:proplist(Records).
 
 record(_Config) ->
     Json1 = <<"{\"site\":"

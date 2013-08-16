@@ -25,6 +25,9 @@ transform(Subject, Filter) ->
         {error, unprocessable}
     end.
 
+do_transform({record, [{_,_}|_]=Proplist}, Filter) ->
+    Record = proplist_to_record(Proplist, Filter),
+    {ok, Record};
 do_transform({record, Binary}, Filter) ->
     Proplist = binary_to_proplist(Binary), 
     Record = proplist_to_record(Proplist, Filter), 
@@ -112,32 +115,40 @@ struct_to_proplist({struct, Proplist}) ->
 struct_to_proplist(Other) ->
     Other.
 
+proplist_to_record([{Record, Proplist}], Filter) when is_atom(Record) ->
+    proplist_to_record1(Record, Proplist, Filter, fun find_field/4);
 proplist_to_record([{RecordB, Proplist}], Filter) ->
-    Dict = dict:from_list(Proplist),
     Record = binary_to_existing_atom(RecordB, utf8),
+    proplist_to_record1(Record, Proplist, Filter, fun find_field_binary/4);
+proplist_to_record(List, Filter) when is_list(List) ->
+    [proplist_to_record(Record, Filter) || Record <- List].
+
+proplist_to_record1(Record, Proplist, Filter, FindField) ->
+    Dict = dict:from_list(Proplist),
     [{Record, Fields}] = ets:lookup(?RECORDS_TABLE, Record),
     Values = lists:map(fun({Field, _Relation, Default}) ->
-                    find_field(Field, Dict, fun proplist_to_record/2,
+                    FindField(Field, Dict, fun proplist_to_record/2,
                                Default);
                 ({Field, Default}) ->
-                    find_field(Field, Dict, fun(X,_F) -> X end,
+                    FindField(Field, Dict, fun(X,_F) -> X end,
                                Default)
             end, Fields),
     Filter2 = case ets:lookup(?INPUT_FILTERS_TABLE, Record) of
         [{Record, Filter1}] -> joint_filter(Filter1, Filter);
         _                   -> Filter
     end,
-    Filter2(list_to_tuple([Record | Values]));
-proplist_to_record(List, Filter) when is_list(List) ->
-    [proplist_to_record(Record, Filter) || Record <- List].
+    Filter2(list_to_tuple([Record | Values])).
 
 find_field(Field, Dict, Map, Default) ->
-    FieldB = atom_to_binary(Field, utf8),
-    case dict:find(FieldB, Dict) of
+    case dict:find(Field, Dict) of
         {ok, null} -> Default;
         {ok, Value} -> Map(Value, fun(X) -> X end);
         error -> Default
     end.
+
+find_field_binary(Field, Dict, Map, Default) ->
+    FieldB = atom_to_binary(Field, utf8),
+    find_field(FieldB, Dict, Map, Default).
 
 joint_filter(F1, F2) ->
     fun(X) -> F2(F1(X)) end.

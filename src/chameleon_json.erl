@@ -52,6 +52,8 @@ prepare_struct({Key, [{_,_}|_]=Proplist}, Records, Filter) ->
     {Key, prepare_struct(Proplist, Records, Filter)};
 prepare_struct({Key, undefined}, _Records, _Filter) ->
     {Key, null};
+prepare_struct({Key, Value}, _Records, _Filter) ->
+    {Key, Value};
 prepare_struct(Record, Records, Filter) when is_tuple(Record) ->
     [RecordName|_] = tuple_to_list(Record),
     Filter2 = case ets:lookup(?OUTPUT_FILTERS_TABLE, RecordName) of
@@ -59,14 +61,9 @@ prepare_struct(Record, Records, Filter) when is_tuple(Record) ->
         _                       -> Filter
     end,
     FilteredRecord = Filter2(Record),
-    case dict:is_key(RecordName, Records) of
-        true ->
-            RecordList = recursive_tuple_to_list(FilteredRecord),
-            RecordProplist = recursive_zip(RecordList, [], Records, yes),
-            prepare_struct(RecordProplist, Records, fun(X) -> X end);
-        false ->
-            Record
-    end;
+    RecordList = recursive_tuple_to_list(FilteredRecord),
+    RecordProplist = recursive_zip(RecordList, [], Records, yes),
+    prepare_struct(RecordProplist, Records, fun(X) -> X end);
 prepare_struct([{_,_}|_]=Proplist, Records, Filter) ->
     {struct, [prepare_struct(Element, Records, Filter) || Element <- Proplist]};
 prepare_struct(List, Records, Filter) when is_list(List) ->
